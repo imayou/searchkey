@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>报文搜索服务</title>
+<link href="/css/bootstrap.min.css" rel="stylesheet">
+<script src="/js/avalon.min.js"></script>
+<script src="/js/jquery-3.2.1.min.js"></script>
+<style type="text/css">
+.searchform, .footer{
+	text-align: center;
+}
+
+.searchbtn {
+	margin-top: 30px;
+	width: 20%;
+}
+
+.base {
+	padding: 8px 0px;
+}
+.footer{
+	margin-top: 266px
+}
+</style>
+<script type="text/javascript">
+	avalon.config({
+		debug : true
+	})
+	//avalon.log("hello");
+	var vm = avalon.define({
+		$id : "search",
+		toggle : false,
+		downShow : false,
+		downTip : false,
+		err:false,
+		errMsg:'',
+		env:(function(){
+			switch (window.location.hostname) {
+			case "10.196.20.37":
+				return "IT环境";
+			case "10.196.21.25":
+				return "ST环境";
+			case "10.196.22.22":
+				return "UAT环境";
+			case "10.196.52.17":
+				return "DT环境";
+			default:
+				return "本地环境";
+			}
+		})(),
+		file : {
+			key : '', //关键字  
+			path : '',//路径   
+			name : '',//名称   
+			time : '今天',//时间   
+			type : 'makePremium',//类型   
+			list : [] //下载列表
+		},
+		search : function(e) {
+			vm.downShow=false;
+			if (vm.file.key == '') {
+				vm.toggle = true;
+				setTimeout(function() {
+					vm.toggle = false
+				}, 6666);
+				return;
+			}
+			var tmpT = vm.file.time;
+			vm.file.time = getTime(vm.file.time);
+			vm.file.list = [];
+			var data = vm.file.$model;
+			vm.file.time = tmpT;
+			$.ajax({
+				url : '/file/search',
+				type : 'POST',
+				data : data,
+				success : function(data) {
+					vm.toggle = false
+					if(data=="0"){
+						return tip("路径不存在！");
+					}
+					if(data=="-1"){
+						return tip("给定路径不正确且没有指定-DFile.Path！");
+					}
+					if(data=="-2"){
+						return tip("没有找到相关报文！");
+					}
+					if(data.errorCode &&(data.errorCode==1000||data.errorCode==2000||data.errorCode==4000)){
+						return tip("其他异常！");
+					}
+					vm.file.list=[];
+					$.each(data,function(i){
+						vm.file.list.push(data[i]);
+					});
+					vm.downShow=true;
+				},
+				error:function(err){
+					tip("服务可能死掉了！");
+				}
+			})
+		},
+		down : function(e) {
+			vm.downTip = true;
+			setTimeout(function() {
+				vm.downTip = false
+			}, 6666);
+			$.ajax({
+				url : '/file/zip',
+				type : 'POST',
+			　　 data:{
+					path:vm.file.path,
+					time:getTime(vm.file.time),
+					type:vm.file.type,
+					key:vm.file.key,
+					list:JSON.stringify(vm.file.list)
+				}, 
+				success : function(data) {
+					vm.toggle = false
+					if(data=="0"){
+						return tip("后台异常！");
+					}
+					if(data=="-1"){
+						return tip("给定路径不正确且没有指定-DFile.Path！");
+					}
+					if(data=="-2"){
+						return tip("没有找到相关报文！");
+					}
+					if(data.errorCode &&(data.errorCode==1000||data.errorCode==2000||data.errorCode==4000)){
+						return tip("其他异常！");
+					}
+					window.open(encodeURI("/file/down?file="+data));
+				},
+				error:function(data){
+					console.log(data);
+					return tip("其他异常！");
+				}
+			})
+		},
+	})
+	
+	function tip(txt){
+		vm.errMsg = txt;
+		vm.err = true;
+		setTimeout(function() {
+			vm.err = false
+		}, 6666);
+		vm.downShow = false;
+	}
+	
+	function getTime(str){
+		var now = new Date();
+		var date;
+		switch (str) {
+		case "今天":
+			return now.Format("yyyyMMdd")
+		case "昨天":
+			date = now.setDate(now.getDate()-1);
+			break;
+		case "前天":
+			date = now.setDate(now.getDate()-2);
+			break;
+		case "大前天":
+			date = now.setDate(now.getDate()-3);
+			break;
+		case "大大前天":
+			date = now.setDate(now.getDate()-3);
+			break;
+
+		default:
+			break;
+		}
+		date = new Date(date);
+		return date.Format("yyyyMMdd")
+	}
+	// 对Date的扩展，将 Date 转化为指定格式的String
+	// 月(M)、日(d)、小时(h)、分(m)、秒(s)、季度(q) 可以用 1-2 个占位符，
+	// 年(y)可以用 1-4 个占位符，毫秒(S)只能用 1 个占位符(是 1-3 位的数字)
+	// 例子：
+	// (new Date()).Format("yyyy-MM-dd hh:mm:ss.S") ==> 2006-07-02 08:09:04.423
+	// (new Date()).Format("yyyy-M-d h:m:s.S")   ==> 2006-7-2 8:9:4.18
+	Date.prototype.Format = function (fmt) { //author: meizz
+		var o = {
+			"M+": this.getMonth() + 1, //月份
+			"d+": this.getDate(), //日
+			"h+": this.getHours(), //小时
+			"m+": this.getMinutes(), //分
+			"s+": this.getSeconds(), //秒
+			"q+": Math.floor((this.getMonth() + 3) / 3), //季度
+			"S": this.getMilliseconds() //毫秒
+		};
+		if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+		for (var k in o)
+		if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+		return fmt;
+	}
+</script>
+</head>
+<body style="margin-top: 36px !important;">
+	<nav></nav>
+	<div class="container" ms-controller="search">
+		<div class="form-signin searchform">
+			<h2 class="form-signin-heading">报文搜索</h2>
+			<br>
+			<div ms-visible="@err" class="alert alert-danger" role="alert">{{@errMsg}}</div>
+			<br> <label for="inputEmail" class="sr-only">KEY</label> <input ms-duplex="@file.key" type="search" class="form-control" placeholder="查询码、保单号、车架号、车牌、等等" required="true"
+				autofocus="true">
+			<section>
+				<div class="row base">
+					<div class="col-xs-12 col-md-6 col-md-6">
+						<select ms-duplex="@file.type" class="form-control">
+							<option value="makePremium" selected="selected">makePremium-保费计算</option>
+							<option>makePremium_y</option>
+							<option value="savePolicy">savePolicy-提核</option>
+							<option>savePolicy_y</option>
+							<option>agentOrg</option>
+							<option>agentOrg_y</option>
+							<option>BJnewCarMergelog</option>
+							<option>callBack</option>
+							<option>callBackPolicy</option>
+							<option>callBackPolicy_y</option>
+							<option>callBack_y</option>
+							<option>carRegister</option>
+							<option>carRegister_y</option>
+							<option>guaranteeOrder</option>
+							<option>guaranteeOrder_y</option>
+							<option>identityCollection</option>
+							<option>identityCollection_y</option>
+							<option>insertInvoiceService</option>
+							<option>insertInvoiceService_y</option>
+							<option>linePOSPay</option>
+							<option>linePOSPayFront</option>
+							<option>linePOSPayFront_y</option>
+							<option>linePOSPay_y</option>
+							<option>NewCarModify</option>
+							<option>NewCarModify_y</option>
+							<option>payRegister</option>
+							<option>payRegister_y</option>
+							<option>queryVehicleType</option>
+							<option>queryVehicleType_y</option>
+							<option>reNewalQuery</option>
+							<option>reNewalQuery_y</option>
+							<option>repealPayNo</option>
+							<option>repealPayNo_y</option>
+							<option>repealPayRegister</option>
+							<option>repealPayRegister_y</option>
+							<option>repealPolicy</option>
+							<option>repealPolicy_y</option>
+							<option>salesManTeam</option>
+							<option>salesManTeam_y</option>
+							<option>servicesCode</option>
+							<option>servicesCode_y</option>
+							<option>vehicleQuery</option>
+							<option>vehicleTypeMergelog</option>
+							<option>webserviceProcess</option>
+							<option>webserviceProcess_y</option>
+						</select>
+					</div>
+					<div class="col-xs-12 col-sm-6 col-md-6">
+						<select ms-duplex="@file.time" class="form-control">
+							<option selected="selected">今天</option>
+							<option>昨天</option>
+							<option>前天</option>
+							<option>大前天</option>
+							<option>大大前天</option>
+						</select>
+					</div>
+				</div>
+			</section>
+			<button class="btn btn-small btn-primary searchbtn" ms-on-click="@search">搜索</button>
+			<br>
+			<br>
+			<div ms-visible="@toggle" class="alert alert-warning base" role="alert">你要搜啥？</div>
+
+			<section ms-visible="@downShow">
+				<hr>
+				<button class="btn btn-small btn-success searchbtn" ms-on-click="@down">下载</button>
+				<br>
+				<br>
+				<div ms-visible="@downTip" class="alert alert-success base " role="alert">下载开始</div>
+			</section>
+
+		</div>
+		<footer class="footer">
+			<div class="row base">
+				<div class="col-xs-12 col-md-2 col-md-2">当前：{{@env}}</div>
+				<div class="col-xs-12 col-md-2 col-md-2"><a href="http://10.196.20.37:6006/">IT环境</a></div>
+				<div class="col-xs-12 col-md-2 col-md-2"><a href="http://10.196.21.25:6006/">ST环境</a></div>
+				<div class="col-xs-12 col-md-2 col-md-2"><a href="http://10.196.22.22:6006/">UAT环境</a></div>
+				<div class="col-xs-12 col-md-2 col-md-2"><a href="http://10.196.52.17:6006/">DT环境</a></div>
+			</div>
+		</footer>
+	</div>
+</body>
+</html>
