@@ -25,7 +25,7 @@ public class Search {
 	 * @return
 	 */
 	public static File[] getAllFile(File folder) {// 递归查找包含关键字的文件
-		File[] subFolders = folder.listFiles(x -> x.getAbsolutePath().endsWith(".xml"));
+		File[] files = folder.listFiles();
 
 		/*
 		 * new FileFilter() {// 运用内部匿名类获得文件
@@ -38,20 +38,20 @@ public class Search {
 		 */
 
 		List<File> result = new ArrayList<File>();// 声明一个集合
-		for (int i = 0; i < subFolders.length; i++) {// 循环显示文件夹或文件
-			if (subFolders[i].isFile()) {// 如果是文件则将文件添加到结果列表中
-				result.add(subFolders[i]);
+		for (int i = 0; i < files.length; i++) {// 循环显示文件夹或文件
+			if (files[i].isFile()) {// 如果是文件则将文件添加到结果列表中
+				result.add(files[i]);
 			} else {// 如果是文件夹，则递归调用本方法，然后把所有的文件加到结果列表中
-				File[] foldResult = getAllFile(subFolders[i]);
+				File[] foldResult = getAllFile(files[i]);
 				for (int j = 0; j < foldResult.length; j++) {// 循环显示文件
 					result.add(foldResult[j]);// 文件保存到集合中
 				}
 			}
 		}
 
-		File files[] = new File[result.size()];// 声明文件数组，长度为集合的长度
-		result.toArray(files);// 集合数组化
-		return files;
+		File rfiles[] = new File[result.size()];// 声明文件数组，长度为集合的长度
+		result.toArray(rfiles);// 集合数组化
+		return rfiles;
 	}
 
 	/**
@@ -275,7 +275,7 @@ public class Search {
 //5260a8f540ab463cad4b63064a7657c3		
 		for(;;){
 			long startnio = System.currentTimeMillis();
-			List<String> xx = search4Java8(result, "48364037674399659");
+			List<String> xx = search4Java8(result, "yangshiyou");
 			long endnio = System.currentTimeMillis();
 			System.err.println("用"+Runtime.getRuntime().availableProcessors()+ "个核心"+t + "个线程和java8流搜索了" + result.length + "个文件搜到"+xx.size()+"个文件，用时：" + (endnio - startnio));
 			//System.out.println(xx);
